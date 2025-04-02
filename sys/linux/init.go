@@ -63,6 +63,7 @@ func InitTarget(target *prog.Target) {
 		"ebt_replace":               arch.generateEbtables,
 		"usb_device_descriptor":     arch.generateUsbDeviceDescriptor,
 		"usb_device_descriptor_hid": arch.generateUsbHidDeviceDescriptor,
+		"hid_descriptor_report":     arch.generateHidReportDescriptor,
 	}
 
 	target.AuxResources = map[string]bool{

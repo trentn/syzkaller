@@ -175,6 +175,28 @@ func (arch *arch) generateUsbHidDeviceDescriptor(g *prog.Gen, typ0 prog.Type, di
 	return
 }
 
+func (arch *arch) generateHidReportDescriptor(g *prog.Gen, typ0 prog.Type, dir prog.Dir, old prog.Arg) (
+	arg prog.Arg, calls []*prog.Call) {
+
+	if old == nil {
+		arg = g.GenerateSpecialArg(typ0, dir, &calls)
+	} else {
+		arg = prog.CloneArg(old)
+		calls = g.MutateArg(arg)
+	}
+	if g.Target().ArgContainsAny(arg) {
+		return
+	}
+
+	arg = prog.CloneArg(old)
+	a := arg.(*prog.GroupArg).Inner[0]
+	items := a.(*prog.GroupArg).Inner
+	for i := 0; i < len(items); i++ {
+		items[i].(*prog.ConstArg).Val = 0xff
+	}
+	return
+}
+
 func patchGroupArg(arg prog.Arg, index int, field string, value uint64) {
 	a := arg.(*prog.GroupArg)
 	typ := a.Type().(*prog.StructType)
