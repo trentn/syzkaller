@@ -5,6 +5,7 @@
 
 // Generic parts of implementation of syz_usb_* pseudo-syscalls.
 
+#define USB_DEBUG 1
 #define USB_MAX_IFACE_NUM 4
 #define USB_MAX_EP_NUM 32
 #define USB_MAX_FDS 6

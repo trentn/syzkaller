@@ -63,12 +63,16 @@ func (arch *arch) generateUsbDeviceDescriptor(g *prog.Gen, typ0 prog.Type, dir p
 	}
 
 	id := randUsbDeviceID(g)
-	bcdDevice := id.BcdDeviceLo + uint16(g.Rand().Intn(int(id.BcdDeviceHi-id.BcdDeviceLo)+1))
+	// bcdDevice := id.BcdDeviceLo + uint16(g.Rand().Intn(int(id.BcdDeviceHi-id.BcdDeviceLo)+1))
 
 	devArg := arg.(*prog.GroupArg).Inner[0]
-	patchGroupArg(devArg, 7, "idVendor", uint64(id.IDVendor))
-	patchGroupArg(devArg, 8, "idProduct", uint64(id.IDProduct))
-	patchGroupArg(devArg, 9, "bcdDevice", uint64(bcdDevice))
+	// patchGroupArg(devArg, 7, "idVendor", uint64(id.IDVendor))
+	// patchGroupArg(devArg, 8, "idProduct", uint64(id.IDProduct))
+	// patchGroupArg(devArg, 9, "bcdDevice", uint64(bcdDevice))
+	// hardcode for anton touchpad
+	patchGroupArg(devArg, 7, "idVendor", uint64(0x1130))
+	patchGroupArg(devArg, 8, "idProduct", uint64(0x3101))
+	patchGroupArg(devArg, 9, "bcdDevice", uint64(0x0200))
 	patchGroupArg(devArg, 3, "bDeviceClass", uint64(id.BDeviceClass))
 	patchGroupArg(devArg, 4, "bDeviceSubClass", uint64(id.BDeviceSubClass))
 	patchGroupArg(devArg, 5, "bDeviceProtocol", uint64(id.BDeviceProtocol))
@@ -162,8 +166,11 @@ func (arch *arch) generateUsbHidDeviceDescriptor(g *prog.Gen, typ0 prog.Type, di
 	}
 
 	devArg := arg.(*prog.GroupArg).Inner[0]
-	patchGroupArg(devArg, 7, "idVendor", uint64(id.Vendor))
-	patchGroupArg(devArg, 8, "idProduct", uint64(id.Product))
+	// patchGroupArg(devArg, 7, "idVendor", uint64(id.Vendor))
+	// patchGroupArg(devArg, 8, "idProduct", uint64(id.Product))
+	// hardcode for anton touchpad
+	patchGroupArg(devArg, 7, "idVendor", uint64(0x1130))
+	patchGroupArg(devArg, 8, "idProduct", uint64(0x3101))
 
 	return
 }
