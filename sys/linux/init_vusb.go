@@ -63,16 +63,15 @@ func (arch *arch) generateUsbDeviceDescriptor(g *prog.Gen, typ0 prog.Type, dir p
 	}
 
 	id := randUsbDeviceID(g)
-	// bcdDevice := id.BcdDeviceLo + uint16(g.Rand().Intn(int(id.BcdDeviceHi-id.BcdDeviceLo)+1))
+	bcdDevice := id.BcdDeviceLo + uint16(g.Rand().Intn(int(id.BcdDeviceHi-id.BcdDeviceLo)+1))
 
 	devArg := arg.(*prog.GroupArg).Inner[0]
-	// patchGroupArg(devArg, 7, "idVendor", uint64(id.IDVendor))
-	// patchGroupArg(devArg, 8, "idProduct", uint64(id.IDProduct))
-	// patchGroupArg(devArg, 9, "bcdDevice", uint64(bcdDevice))
+	patchGroupArg(devArg, 7, "idVendor", uint64(id.IDVendor))
+	patchGroupArg(devArg, 8, "idProduct", uint64(id.IDProduct))
 	// hardcode for anton touchpad
-	patchGroupArg(devArg, 7, "idVendor", uint64(0x1130))
-	patchGroupArg(devArg, 8, "idProduct", uint64(0x3101))
-	patchGroupArg(devArg, 9, "bcdDevice", uint64(0x0200))
+	// patchGroupArg(devArg, 7, "idVendor", uint64(0x1130))
+	// patchGroupArg(devArg, 8, "idProduct", uint64(0x3101))
+	patchGroupArg(devArg, 9, "bcdDevice", uint64(bcdDevice))
 	patchGroupArg(devArg, 3, "bDeviceClass", uint64(id.BDeviceClass))
 	patchGroupArg(devArg, 4, "bDeviceSubClass", uint64(id.BDeviceSubClass))
 	patchGroupArg(devArg, 5, "bDeviceProtocol", uint64(id.BDeviceProtocol))
@@ -166,34 +165,75 @@ func (arch *arch) generateUsbHidDeviceDescriptor(g *prog.Gen, typ0 prog.Type, di
 	}
 
 	devArg := arg.(*prog.GroupArg).Inner[0]
-	// patchGroupArg(devArg, 7, "idVendor", uint64(id.Vendor))
-	// patchGroupArg(devArg, 8, "idProduct", uint64(id.Product))
+	patchGroupArg(devArg, 7, "idVendor", uint64(id.Vendor))
+	patchGroupArg(devArg, 8, "idProduct", uint64(id.Product))
 	// hardcode for anton touchpad
-	patchGroupArg(devArg, 7, "idVendor", uint64(0x1130))
-	patchGroupArg(devArg, 8, "idProduct", uint64(0x3101))
+	// patchGroupArg(devArg, 7, "idVendor", uint64(0x1130))
+	// patchGroupArg(devArg, 8, "idProduct", uint64(0x3101))
 
 	return
 }
 
-func (arch *arch) generateHidReportDescriptor(g *prog.Gen, typ0 prog.Type, dir prog.Dir, old prog.Arg) (
+func (arch *arch) generateDescriptorsHID(g *prog.Gen, typ0 prog.Type, dir prog.Dir, old prog.Arg) (
 	arg prog.Arg, calls []*prog.Call) {
 
 	if old == nil {
+		//fmt.Println("GENERATING SPECIAL ARG")
 		arg = g.GenerateSpecialArg(typ0, dir, &calls)
 	} else {
+		//fmt.Println("MUTATING ARG")
 		arg = prog.CloneArg(old)
 		calls = g.MutateArg(arg)
 	}
 	if g.Target().ArgContainsAny(arg) {
+		//fmt.Println("EARLY RETURN")
 		return
 	}
 
-	arg = prog.CloneArg(old)
-	a := arg.(*prog.GroupArg).Inner[0]
-	items := a.(*prog.GroupArg).Inner
-	for i := 0; i < len(items); i++ {
-		items[i].(*prog.ConstArg).Val = 0xff
+	/*
+		# arg == hid_descriptor_report as a GroupArg
+		hid_descriptor_report {
+			# items is arg.Inner where each element is a UnionArg
+			items	array[hid_report_item_short]
+		} [packed]
+
+		# The Option of those UnionArgs will be another UnionArg (see hid_report_item_short_t in vusb.txt)
+		# That nested UnionArg will then be a GroupArg
+		hid_report_item_short [
+			main	hid_report_item_short_t[HID_ITEM_TYPE_MAIN, hid_report_item_main_tags]
+			global	hid_report_item_short_t[HID_ITEM_TYPE_GLOBAL, hid_report_item_global_tags]
+			local	hid_report_item_short_t[HID_ITEM_TYPE_LOCAL, hid_report_item_local_tags]
+		] [varlen]
+	*/
+
+	/*
+		The implementation above would be difficult to patch out.
+		More details can be found in a vusb.txt near the modified structures
+
+		Instead, the hid_descriptor_report is modified to be a buffer of int8s
+		hid_descriptor_report {
+			items	array[int8, 21:256]
+		} [packed]
+	*/
+
+	a := arg.(*prog.GroupArg).Inner[3]
+	//typ := arg.Type().(*prog.StructType)
+	//fmt.Println("DEBUGG: ", typ.Fields[3].Name)
+
+	data := a.(*prog.PointerArg).Res.(*prog.GroupArg).Inner[3]
+	//dtyp := a.(*prog.PointerArg).Res.Type().(*prog.StructType)
+	//fmt.Println("DEBUGG: ", dtyp.Fields[3].Name)
+
+	items := data.(*prog.GroupArg).Inner[0]
+	//That structure is a DataArg
+	len := items.(*prog.DataArg).Size()
+
+	report_descriptor := make([]byte, len)
+	for i := range report_descriptor {
+		report_descriptor[i] = 0xFF
 	}
+
+	items.(*prog.DataArg).SetData(report_descriptor)
 	return
 }
 

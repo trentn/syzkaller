@@ -498,13 +498,17 @@ usb_hub_change_flags = HUB_CHANGE_LOCAL_POWER, HUB_CHANGE_OVERCURRENT
 
 resource fd_usb_hid[fd_usb]
 
-syz_usb_connect$hid(speed flags[usb_device_speed], dev_len len[dev], dev ptr[in, usb_device_descriptor_hid], conn_descs ptr[in, vusb_connect_descriptors]) fd_usb_hid (timeout[3000], prog_timeout[3000], remote_cover)
+syz_usb_connect$hid(speed flags[usb_device_speed], dev_len len[dev], dev ptr[in, usb_device_descriptor_hid_anton], conn_descs ptr[in, vusb_connect_descriptors]) fd_usb_hid (timeout[3000], prog_timeout[3000], remote_cover)
 syz_usb_control_io$hid(fd fd_usb_hid, descs ptr[in, vusb_descriptors_hid], resps ptr[in, vusb_responses_hid]) (timeout[300], remote_cover)
 
-# idVendor and idProduct are patched by Go code, see sys/linux/init_vusb.go.
-usb_device_descriptor_hid {
-	inner	usb_device_descriptor_t[0, 0, 0, 0, 0, 64, array[usb_config_descriptor_hid, 1]]
+usb_device_descriptor_hid_anton {
+	inner	usb_device_descriptor_t[0, 0, 0, 0x1130, 0x3101, 64, array[usb_config_descriptor_hid, 1]]
 } [packed]
+
+## idVendor and idProduct are patched by Go code, see sys/linux/init_vusb.go.
+#usb_device_descriptor_hid {
+#	inner	usb_device_descriptor_t[0, 0, 0, 0, 0, 64, array[usb_config_descriptor_hid, 1]]
+#} [packed]
 
 usb_config_descriptor_hid {
 	inner	usb_config_descriptor_ifaces_array_t[const[1, int8], array[usb_interface_descriptor_hid, 1]]
@@ -582,37 +586,39 @@ usb_hid_class_descriptor_report {
 
 # Linux HID stack doesn't support long items.
 hid_descriptor_report {
-	items	array[hid_report_item_short]
+	items	array[int8, 21:256]
 } [packed]
 
-type hid_report_item_short_012_t[TYPE, TAGS] {
-	bSize	len[data, int8:2]
-	bType	const[TYPE, int8:2]
-	bTag	flags[TAGS, int8:4]
-	data	array[int8, 0:2]
-} [packed]
-
-type hid_report_item_short_4_t[TYPE, TAGS] {
-	bSize	const[3, int8:2]
-	bType	const[TYPE, int8:2]
-	bTag	flags[TAGS, int8:4]
-	data	array[int8, 4]
-} [packed]
-
-type hid_report_item_short_t[TYPE, TAGS] [
-	item_012	hid_report_item_short_012_t[TYPE, TAGS]
-	item_4		hid_report_item_short_4_t[TYPE, TAGS]
-] [varlen]
-
-hid_report_item_short [
-	main	hid_report_item_short_t[HID_ITEM_TYPE_MAIN, hid_report_item_main_tags]
-	global	hid_report_item_short_t[HID_ITEM_TYPE_GLOBAL, hid_report_item_global_tags]
-	local	hid_report_item_short_t[HID_ITEM_TYPE_LOCAL, hid_report_item_local_tags]
-] [varlen]
-
-hid_report_item_main_tags = HID_MAIN_ITEM_TAG_INPUT, HID_MAIN_ITEM_TAG_OUTPUT, HID_MAIN_ITEM_TAG_FEATURE, HID_MAIN_ITEM_TAG_BEGIN_COLLECTION, HID_MAIN_ITEM_TAG_END_COLLECTION
-hid_report_item_global_tags = HID_GLOBAL_ITEM_TAG_USAGE_PAGE, HID_GLOBAL_ITEM_TAG_LOGICAL_MINIMUM, HID_GLOBAL_ITEM_TAG_LOGICAL_MAXIMUM, HID_GLOBAL_ITEM_TAG_PHYSICAL_MINIMUM, HID_GLOBAL_ITEM_TAG_PHYSICAL_MAXIMUM, HID_GLOBAL_ITEM_TAG_UNIT_EXPONENT, HID_GLOBAL_ITEM_TAG_UNIT, HID_GLOBAL_ITEM_TAG_REPORT_SIZE, HID_GLOBAL_ITEM_TAG_REPORT_ID, HID_GLOBAL_ITEM_TAG_REPORT_COUNT, HID_GLOBAL_ITEM_TAG_PUSH, HID_GLOBAL_ITEM_TAG_POP
-hid_report_item_local_tags = HID_LOCAL_ITEM_TAG_USAGE, HID_LOCAL_ITEM_TAG_USAGE_MINIMUM, HID_LOCAL_ITEM_TAG_USAGE_MAXIMUM, HID_LOCAL_ITEM_TAG_DESIGNATOR_INDEX, HID_LOCAL_ITEM_TAG_DESIGNATOR_MINIMUM, HID_LOCAL_ITEM_TAG_DESIGNATOR_MAXIMUM, HID_LOCAL_ITEM_TAG_STRING_INDEX, HID_LOCAL_ITEM_TAG_STRING_MINIMUM, HID_LOCAL_ITEM_TAG_STRING_MAXIMUM, HID_LOCAL_ITEM_TAG_DELIMITER
+# the structures below make generating a report descriptor difficult
+# todo: explain more
+#type hid_report_item_short_012_t[TYPE, TAGS] {
+#	bSize	len[data, int8:2]
+#	bType	const[TYPE, int8:2]
+#	bTag	flags[TAGS, int8:4]
+#	data	array[int8, 0:2]
+#} [packed]
+#
+#type hid_report_item_short_4_t[TYPE, TAGS] {
+#	bSize	const[3, int8:2]
+#	bType	const[TYPE, int8:2]
+#	bTag	flags[TAGS, int8:4]
+#	data	array[int8, 4]
+#} [packed]
+#
+#type hid_report_item_short_t[TYPE, TAGS] [
+#	item_012	hid_report_item_short_012_t[TYPE, TAGS]
+#	item_4		hid_report_item_short_4_t[TYPE, TAGS]
+#] [varlen]
+#
+#hid_report_item_short [
+#	main	hid_report_item_short_t[HID_ITEM_TYPE_MAIN, hid_report_item_main_tags]
+#	global	hid_report_item_short_t[HID_ITEM_TYPE_GLOBAL, hid_report_item_global_tags]
+#	local	hid_report_item_short_t[HID_ITEM_TYPE_LOCAL, hid_report_item_local_tags]
+#] [varlen]
+#
+#hid_report_item_main_tags = HID_MAIN_ITEM_TAG_INPUT, HID_MAIN_ITEM_TAG_OUTPUT, HID_MAIN_ITEM_TAG_FEATURE, HID_MAIN_ITEM_TAG_BEGIN_COLLECTION, HID_MAIN_ITEM_TAG_END_COLLECTION
+#hid_report_item_global_tags = HID_GLOBAL_ITEM_TAG_USAGE_PAGE, HID_GLOBAL_ITEM_TAG_LOGICAL_MINIMUM, HID_GLOBAL_ITEM_TAG_LOGICAL_MAXIMUM, HID_GLOBAL_ITEM_TAG_PHYSICAL_MINIMUM, HID_GLOBAL_ITEM_TAG_PHYSICAL_MAXIMUM, HID_GLOBAL_ITEM_TAG_UNIT_EXPONENT, HID_GLOBAL_ITEM_TAG_UNIT, HID_GLOBAL_ITEM_TAG_REPORT_SIZE, HID_GLOBAL_ITEM_TAG_REPORT_ID, HID_GLOBAL_ITEM_TAG_REPORT_COUNT, HID_GLOBAL_ITEM_TAG_PUSH, HID_GLOBAL_ITEM_TAG_POP
+#hid_report_item_local_tags = HID_LOCAL_ITEM_TAG_USAGE, HID_LOCAL_ITEM_TAG_USAGE_MINIMUM, HID_LOCAL_ITEM_TAG_USAGE_MAXIMUM, HID_LOCAL_ITEM_TAG_DESIGNATOR_INDEX, HID_LOCAL_ITEM_TAG_DESIGNATOR_MINIMUM, HID_LOCAL_ITEM_TAG_DESIGNATOR_MAXIMUM, HID_LOCAL_ITEM_TAG_STRING_INDEX, HID_LOCAL_ITEM_TAG_STRING_MINIMUM, HID_LOCAL_ITEM_TAG_STRING_MAXIMUM, HID_LOCAL_ITEM_TAG_DELIMITER
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
