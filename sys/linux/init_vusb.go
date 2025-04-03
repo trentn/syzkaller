@@ -6,6 +6,7 @@ package linux
 import (
 	"encoding/binary"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/google/syzkaller/prog"
@@ -174,6 +175,89 @@ func (arch *arch) generateUsbHidDeviceDescriptor(g *prog.Gen, typ0 prog.Type, di
 	return
 }
 
+// ******************************
+
+func generateUsagePage() (byte, byte) {
+	// 0x05 = 0b000001nn where nn is 01 for one byte
+	// see pages 14 and 35 of hid1_11.pdf
+	return 0x05, byte(rand.Uint32() & 0xFF)
+}
+
+func generateUsage() (byte, byte) {
+	// 0x09 = 0b000010nn where nn is 01 for one byte
+	// see pages 14 and 40 of hid1_11.pdf
+	return 0x09, byte(rand.Uint32() & 0xFF)
+}
+
+func generateCollection() (byte, byte) {
+	// 0xA1 = 0b101000nn where nn is 01 for one byte
+	// see pages 14 and 28 of hid1_11.pdf
+	return 0xA1, byte(rand.Uint32() & 0x07)
+}
+
+func generateEndCollection() byte {
+	// 0xC0 = 0b11000000
+	// see pages 14 and 28 of hid1_11.pdf
+	return 0xC0
+}
+
+func generateReportDescriptor(len int) []byte {
+	descriptor := make([]byte, len)
+	if len < 7 {
+		fmt.Println("TODO")
+	} else {
+		descriptor[0], descriptor[1] = generateUsagePage()
+		descriptor[2], descriptor[3] = generateUsage()
+		descriptor[4], descriptor[5] = generateCollection()
+		descriptor[len-1] = generateEndCollection()
+
+		descriptor[6] = chooseItem(0xff)
+		for i := 7; i < len-2; i = i + 2 {
+			descriptor[i] = byte(rand.Uint32() & 0xFF)
+			descriptor[i+1] = chooseItem(descriptor[i-1])
+		}
+	}
+	return descriptor
+}
+
+// All items will have a single byte value
+func chooseItem(prev byte) byte {
+	items := []byte{
+		0x81, // Input
+		0x91, // Output
+		0xB1, // Feature
+		0x05, // Usage Page
+		0x09, // Usage
+		0x85, // Report ID
+		0x95, // Report Count
+		0x75, // Report Size
+	}
+	transitions := map[byte][]uint{
+		0xff: {0, 0, 0, 1, 1, 8, 0, 0}, //first transition
+
+		0x81: {0, 0, 0, 1, 4, 4, 1, 0},
+		0x91: {0, 0, 0, 1, 4, 4, 1, 0},
+		0xB1: {0, 0, 0, 1, 4, 4, 1, 0},
+		0x05: {0, 0, 0, 0, 6, 0, 2, 2},
+		0x09: {0, 0, 0, 0, 0, 5, 0, 5},
+		0x85: {0, 0, 0, 3, 3, 0, 2, 2},
+		0x95: {0, 0, 1, 0, 0, 0, 0, 9},
+		0x75: {3, 3, 4, 0, 0, 0, 0, 0},
+	}
+
+	transition := transitions[prev]
+	fmt.Println(transition)
+	choices := []byte{}
+	for i, v := range transition {
+		for j := 0; j < int(v); j++ {
+			choices = append(choices, items[i])
+		}
+	}
+	fmt.Println(choices)
+	choice := rand.Intn(10)
+	return choices[choice]
+}
+
 func (arch *arch) generateDescriptorsHID(g *prog.Gen, typ0 prog.Type, dir prog.Dir, old prog.Arg) (
 	arg prog.Arg, calls []*prog.Call) {
 
@@ -228,11 +312,7 @@ func (arch *arch) generateDescriptorsHID(g *prog.Gen, typ0 prog.Type, dir prog.D
 	//That structure is a DataArg
 	len := items.(*prog.DataArg).Size()
 
-	report_descriptor := make([]byte, len)
-	for i := range report_descriptor {
-		report_descriptor[i] = 0xFF
-	}
-
+	report_descriptor := generateReportDescriptor(int(len))
 	items.(*prog.DataArg).SetData(report_descriptor)
 	return
 }
